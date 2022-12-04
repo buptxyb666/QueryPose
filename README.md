@@ -20,7 +20,7 @@ MS COCO mini-val
 Backbone | keypoint AP | keypoint AP \* | Times(ms) | download
 --- |:---:|:---:|:---:|:---:
 [HRNet32_100pro_3x](projects/QueryPose/configs/querypose.res50.100pro.3x.yaml) | 69.8 | 72.3  | 97 | [model]() 
-[HRNet48_100pro_3x](projects/QueryPose/configs/querypose.res50.300pro.3x.yaml) | 71.0 | 73.5  | 102 | [model]() 
+[HRNet48_100pro_3x](projects/QueryPose/configs/querypose.res50.300pro.3x.yaml) | 71.0 | 73.4  | 101 | [model]() 
 [swinL_100pro_3x](projects/QueryPose/configs/querypose.res101.300pro.3x.yaml) | 71.2 | 73.3  | 110 | [model]() 
 
 
