@@ -16,7 +16,8 @@
 
 
 ## Models
-MS COCO mini-val
+MS COCO mini-val; 
+The results are only with 100 queries;
 Backbone | keypoint AP | keypoint AP \* | Times(ms) | download
 --- |:---:|:---:|:---:|:---:
 [HRNet32_100pro_3x](projects/QueryPose/configs/querypose.res50.100pro.3x.yaml) | 69.8 | 72.3  | 97 | [model]() 
