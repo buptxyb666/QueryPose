@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 👏👏👏👏👏👏👏👏👏👏👏 QueryPose is a sparse end-to-end multi-person pose regression framework:
-![](readme/framework.jpeg)
+![](readme/framework.jpg)
 > [**QueryPose: Sparse Multi-Person Pose Regression via Spatial-Aware Part-Level Query**](https://openreview.net/forum?id=tbId-oAOZo),            
 > Yabo Xiao, Kai Su, Xiaojuan Wang, Dongdong Yu, Lei Jin, Mingshu He, Zehuan Yuan;        
 > *Published on NeurIPS 2022*   
@@ -14,7 +14,7 @@
 
 - **Generalizability:** QueryPose is able to achieve the competitive performance on diverise scenes.
 
-- **Fast convergence:** Achieving 60+ AP with only several training epochs.
+- **Fast convergence:** Achieving 60+ AP with only several training epochs. We will release the 1x model with competitive performance.
 
 
 ## Models
