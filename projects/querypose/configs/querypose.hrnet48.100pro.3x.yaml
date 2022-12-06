@@ -1,0 +1,22 @@
+_BASE_: "Base-QueryPose.yaml"
+MODEL:
+  WEIGHTS: "/opt/tiger/Beta_SPose_last/hrnet/pose_hrnet_w48_384x288.pth"
+  BACKBONE:
+    NAME: "build_hrnet_fpnv1_backbone"
+  HRNET:
+    FPN_IN: [48, 96, 192, 384]
+    FPN_OUT: 256
+    type: 'W48'
+  SparseRCNN:
+    NUM_PROPOSALS: 100
+    NUM_CLASSES: 1
+DATASETS:
+  TRAIN: ("keypoints_coco_2017_train",)
+  TEST:  ("keypoints_coco_2017_val",) # ("coco_2017_test-dev",)
+SOLVER:
+  STEPS: (220000, 260000)
+  MAX_ITER: 280000
+INPUT:
+  CROP:
+    ENABLED: True
+  FORMAT: "RGB"

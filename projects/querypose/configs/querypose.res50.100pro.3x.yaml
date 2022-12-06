@@ -1,0 +1,19 @@
+_BASE_: "Base-QueryPose.yaml"
+MODEL:
+  WEIGHTS: "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
+  RESNETS:
+    DEPTH: 50
+    STRIDE_IN_1X1: False
+  SparseRCNN:
+    NUM_PROPOSALS: 100
+    NUM_CLASSES: 1
+DATASETS:
+  TRAIN: ("keypoints_coco_2017_train",)
+  TEST:  ("keypoints_coco_2017_val",)
+SOLVER:
+  STEPS: (110000, 130000)
+  MAX_ITER: 140000
+INPUT:
+  CROP:
+    ENABLED: True
+  FORMAT: "RGB"
