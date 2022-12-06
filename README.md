@@ -14,7 +14,7 @@
 
 - **Generalizability:** QueryPose is able to achieve the competitive performance on diverise scenes.
 
-- **Fast convergence** Achieving 60+ AP with only several training epochs.
+- **Fast convergence:** Achieving 60+ AP with only several training epochs.
 
 
 ## Models
@@ -24,7 +24,7 @@ The results on MS COCO mini-val with 100 queries; We provide the light version m
 Backbone | keypoint AP | keypoint AP \* | Times(ms) | download
 --- |:---:|:---:|:---:|:---:
 [HRNet32_100pro_3x](projects/querypose/configs/querypose.hrnet32.100pro.3x.yaml) | 69.8 | 72.3  | 97 | [model](https://drive.google.com/file/d/1NWdntVoKFz7KjcDjTGwmAHyEEcS2PWC5/view?usp=share_link) 
-[HRNet48_100pro_3x](projects/querypose/configs/querypose.hrnet48.100pro.3x.yaml) | 71.0 | 73.4  | 101 | [model]() 
+[HRNet48_100pro_3x](projects/querypose/configs/querypose.hrnet48.100pro.3x.yaml) | 71.0 | 73.4  | 101 | [model](https://drive.google.com/file/d/1SFECnDV97D_W9Ij4WjcX3BfbiNbGue67/view?usp=share_link) 
 <!-- [swinL_100pro_3x](projects/querypose/configs/querypose.swinL.100pro.3x.yaml) | 71.2 | 73.3  | 110 | [model]()  -->
 
 
