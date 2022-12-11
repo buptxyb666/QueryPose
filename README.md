@@ -14,7 +14,7 @@
 
 - **Generalizability:** QueryPose is able to achieve the competitive performance on diverise scenes.
 
-- **Fast convergence:** Achieving 60+ AP with only several training epochs. We will release the 1x model with competitive performance.
+- **Fast convergence:** Achieving 60+ AP with only several training epochs (about 6 epochs). We will release the 1x model with competitive performance.
 
 
 ## Models
