@@ -20,7 +20,7 @@
 ## Models
 The pretrain model of HRNet-series can be downloaded from [HRNet-pretrain](https://drive.google.com/drive/u/0/folders/17DVq-pwqx40ELmbBjYEYVQc1UC9ofgsq). The swin-series can be downloaded from [Swin Transformer](https://github.com/microsoft/Swin-Transformer)
 
-The results on MS COCO mini-val with 100 queries; We provide the light version models (without dynamic head in keypoint decoder)
+The results on MS COCO mini-val with 100 queries; We provide the light version models (without dynamic MLP in keypoint decoder), whose results are slightly lower than the model with dynamic MLP in keypoint decoder. One can reproduce the paper results when set LIGHT_VERSION to False.
 Backbone | keypoint AP | keypoint AP \* | Times(ms) | download
 --- |:---:|:---:|:---:|:---:
 [HRNet32_100pro_3x](projects/querypose/configs/querypose.hrnet32.100pro.3x.yaml) | 69.8 | 72.3  | 97 | [model](https://drive.google.com/file/d/1NWdntVoKFz7KjcDjTGwmAHyEEcS2PWC5/view?usp=share_link) 
