@@ -5,7 +5,7 @@ from typing import List
 
 import numpy as np
 import torch 
-import torch.distributed as dist
+import torch.distributed as dist 
 import torch.nn.functional as F
 from torch import nn
 
@@ -87,8 +87,7 @@ class QueryPose(nn.Module):
         nn.init.constant_(self.init_proposal_boxes.weight[:, :2], 0.5)
         nn.init.constant_(self.init_proposal_boxes.weight[:, 2:], 1.0)
         # nn.init.constant_(self.part_embed.weight, 0.0)
-        # Build decoder.
-        self.head = Decoder(cfg=cfg, roi_input_shape=self.backbone.output_shape())
+        
 
         # Loss parameters:
         class_weight = cfg.MODEL.SparseRCNN.CLASS_WEIGHT
@@ -143,6 +142,9 @@ class QueryPose(nn.Module):
                                       losses=losses,
                                       use_focal=self.use_focal)
 
+        # Build decoder.
+        self.head = Decoder(cfg=cfg, roi_input_shape=self.backbone.output_shape(), matcher = matcher)
+
         pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(self.device).view(3, 1, 1)
         pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(self.device).view(3, 1, 1)
         self.normalizer = lambda x: (x - pixel_mean) / pixel_std
@@ -167,7 +169,7 @@ class QueryPose(nn.Module):
         images, images_whwh = self.preprocess_image(batched_inputs)
         if isinstance(images, (list, torch.Tensor)):
             images = nested_tensor_from_tensor_list(images)
-
+        
         # Feature Extraction.
         src = self.backbone(images.tensor)
         features = list()        
@@ -180,9 +182,14 @@ class QueryPose(nn.Module):
         proposal_boxes = self.init_proposal_boxes.weight.clone()
         proposal_boxes = box_cxcywh_to_xyxy(proposal_boxes)
         proposal_boxes = proposal_boxes[None] * images_whwh[:, None, :]
+        # import pudb;pudb.set_trace()
+        targets = None
+        if self.training:
+            gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+            targets = self.prepare_targets(gt_instances, features[0].shape)
 
         # Prediction.
-        outputs_class, outputs_coord, outputs_kps, outputs_sgm = self.head(features, proposal_boxes, self.init_proposal_features.weight, self.part_query.weight)
+        outputs_class, outputs_coord, outputs_kps, outputs_sgm, outputs_match_indice = self.head(features, proposal_boxes, self.init_proposal_features.weight, self.part_query.weight, gt = targets)
         output = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1], 'pred_keypoints':outputs_kps[-1], 'pred_sgm':outputs_sgm[-1]}
 
         if self.training:
@@ -192,13 +199,13 @@ class QueryPose(nn.Module):
             else:
                 heatmap = None
 
-            gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
-            targets = self.prepare_targets(gt_instances, features[0].shape)
+            # gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
+            # targets = self.prepare_targets(gt_instances, features[0].shape)
             if self.deep_supervision:
                 output['aux_outputs'] = [{'pred_logits': a, 'pred_boxes': b, 'pred_keypoints': c, 'pred_sgm': d}
                                          for a, b, c, d in zip(outputs_class[:-1], outputs_coord[:-1], outputs_kps[:-1], outputs_sgm[:-1])]
             
-            loss_dict = self.criterion(output, heatmap, targets)
+            loss_dict = self.criterion(output, heatmap, targets, outputs_match_indice)
             weight_dict = self.criterion.weight_dict
             for k in loss_dict.keys():
                 if k in weight_dict:

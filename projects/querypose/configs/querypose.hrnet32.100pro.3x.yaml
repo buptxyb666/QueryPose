@@ -16,8 +16,8 @@ DATASETS:
   TRAIN: ("keypoints_coco_2017_train",)
   TEST:  ("keypoints_coco_2017_val",)
 SOLVER:
-  STEPS: (70000, 85000)
-  MAX_ITER: 90000
+  STEPS: (220000, 260000)
+  MAX_ITER: 280000
 INPUT:
   CROP:
     ENABLED: True

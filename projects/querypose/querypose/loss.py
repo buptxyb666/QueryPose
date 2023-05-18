@@ -8,7 +8,7 @@ from fvcore.nn import sigmoid_focal_loss_jit
 from .util import box_ops
 from .util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
-                       is_dist_avail_and_initialized)
+                       is_dist_avail_and_initialized) 
 from .util.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
 from .real_nvp import RealNVP
 import torch.distributions as distributions
@@ -229,13 +229,16 @@ class SetCriterion(nn.Module):
            targets dicts must contain the key "boxes" containing a tensor of dim [nb_target_boxes, 4]
            The target boxes are expected in format (center_x, center_y, w, h), normalized by the image size.
         """
-        # import pudb;pudb.set_trace()
-        
         assert 'pred_keypoints' in outputs and 'pred_sgm' in outputs
         idx = self._get_src_permutation_idx(indices)
-        src_kps = outputs['pred_keypoints'][idx]
-        src_sgm = outputs['pred_sgm'][idx]
+        # src_kps = outputs['pred_keypoints'][idx]
+        # src_sgm = outputs['pred_sgm'][idx]
         src_boxes = outputs['pred_boxes'][idx].clone().detach()
+
+       
+        src_kps = outputs['pred_keypoints']
+        src_sgm = outputs['pred_sgm']
+        # src_boxes = outputs['pred_boxes'].clone().detach()
         
         target_kps = torch.cat([t['kps_coord'][i] for t, (_, i) in zip(targets, indices)], dim=0) 
         target_vis = torch.cat([t['kps_vis'][i] for t, (_, i) in zip(targets, indices)], dim=0)
@@ -297,17 +300,18 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
 
-    def forward(self, outputs, heatmap, targets):
+    def forward(self, outputs, heatmap, targets, outputs_match_indice):
         """ This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
-        outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
+        # outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
 
         # Retrieve the matching between the outputs of the last layer and the targets
-        indices = self.matcher(outputs_without_aux, targets)
+        # indices = self.matcher(outputs_without_aux, targets)
+        indices = outputs_match_indice[-1]
 
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets)
@@ -324,7 +328,8 @@ class SetCriterion(nn.Module):
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                indices = self.matcher(aux_outputs, targets)
+                # indices = self.matcher(aux_outputs, targets)
+                indices = outputs_match_indice[:-1][i]
                 for loss in self.losses:
                     if loss == 'masks':
                         # Intermediate masks losses are too costly to compute, we ignore them.

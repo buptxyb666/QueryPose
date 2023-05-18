@@ -7,7 +7,7 @@ from typing import Optional, List
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
-
+ 
 from detectron2.modeling.poolers import ROIPooler, cat
 from detectron2.structures import Boxes
 import collections
@@ -18,7 +18,7 @@ _DEFAULT_SCALE_CLAMP = math.log(100000.0 / 16)
 
 class Decoder(nn.Module):
     # including stacked box decoder following sparsercnn and pose decode 
-    def __init__(self, cfg, roi_input_shape):
+    def __init__(self, cfg, roi_input_shape, matcher):
         super().__init__()
 
         # Build RoI.
@@ -27,6 +27,8 @@ class Decoder(nn.Module):
 
         pose_pooler = self._init_pose_pooler(cfg, roi_input_shape)
         self.pose_pooler = pose_pooler
+
+        self.matcher = matcher
         
         # Build heads.
         num_classes = cfg.MODEL.SparseRCNN.NUM_CLASSES
@@ -38,7 +40,7 @@ class Decoder(nn.Module):
         num_heads = cfg.MODEL.SparseRCNN.NUM_HEADS
         rcnn_head = RCNNHead(cfg, d_model, num_classes, dim_feedforward, nhead, dropout, activation)        
         self.head_series = _get_clones(rcnn_head, num_heads)
-        pose_head = Pose_decoder(cfg)
+        pose_head = Pose_Decoder_Layer(cfg)
         self.pose_head_series = _get_clones(pose_head, num_heads)
         self.return_intermediate = cfg.MODEL.SparseRCNN.DEEP_SUPERVISION
         
@@ -105,27 +107,35 @@ class Decoder(nn.Module):
         )
         return pose_pooler
 
-    def forward(self, features, init_bboxes, init_features, part_query):
+    def forward(self, features, init_bboxes, init_features, part_query, **kwargs):
 
         inter_class_logits = []
         inter_pred_bboxes = []
         inter_pred_pose = []
         inter_pred_sigma = []
-        # inter_pred_score = []
+        inter_match_list = []
 
 
         bs = len(features[0])
         bboxes = init_bboxes
         nr_boxes = init_features.shape[0]
         init_features = init_features[None].repeat(1, bs, 1)
-        part_query = part_query.unsqueeze(0).repeat(bs*nr_boxes, 1, 1).permute(1,0,2) # num_part, N*nr_boxes, 128
+        part_query = part_query.unsqueeze(1) #.repeat(bs*nr_boxes, 1, 1).permute(1,0,2) # num_part, N*nr_boxes, 128
     
         proposal_features = init_features.clone()
         
         for idx, rcnn_head in enumerate(self.head_series):
+            # import pudb;pudb.set_trace()
             class_logits, pred_bboxes, proposal_features = rcnn_head(features, bboxes, proposal_features, self.box_pooler)
             bboxes = pred_bboxes.detach()
-            pred_pose, sigma, proposal_features, part_query = self.pose_head_series[idx](features, proposal_features, bboxes, self.pose_pooler, part_query)
+            box_output_dict = {'pred_logits': class_logits, 'pred_boxes': pred_bboxes}
+            if self.training:
+                targets = kwargs['gt']
+                indices = self.matcher(box_output_dict, targets) # e.g. [(tensor([17, 29]), tensor([0, 1])), (tensor([99]), tensor([0]))] 
+            else:
+                indices = None
+            pred_pose, sigma, proposal_features, part_query = self.pose_head_series[idx](features, proposal_features, bboxes, self.pose_pooler, part_query, 
+                                                                                         indices = indices)
     
 
             if self.return_intermediate:
@@ -133,11 +143,12 @@ class Decoder(nn.Module):
                 inter_pred_bboxes.append(pred_bboxes)
                 inter_pred_pose.append(pred_pose)
                 inter_pred_sigma.append(sigma)
+                inter_match_list.append(indices)
 
         if self.return_intermediate:
             
             return torch.stack(inter_class_logits), torch.stack(inter_pred_bboxes), torch.stack(inter_pred_pose), \
-                   torch.stack(inter_pred_sigma)
+                   torch.stack(inter_pred_sigma), inter_match_list
 
     
 
@@ -471,9 +482,9 @@ class Selective_updater(nn.Module):
 
 
 
-class Pose_decoder(nn.Module):
+class Pose_Decoder_Layer(nn.Module):
     def __init__(self, cfg):
-        super(Pose_decoder, self).__init__()
+        super(Pose_Decoder_Layer, self).__init__()
         d_model = cfg.MODEL.SparseRCNN.HIDDEN_DIM
         dim_feedforward = cfg.MODEL.SparseRCNN.DIM_FEEDFORWARD
         dropout = cfg.MODEL.SparseRCNN.DROPOUT
@@ -573,22 +584,49 @@ class Pose_decoder(nn.Module):
     #     final_result = torch.cat(final_result, dim=1)
     #     return final_result 
 
-    def forward(self, features, inst_query, bboxes, pose_pooler, part_query):
-        N, nr_boxes = bboxes.shape[:2]
+    def _get_src_permutation_idx(self, indices):
+        # permute predictions following indices
+        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
+        src_idx = torch.cat([src for (src, _) in indices])
+        return batch_idx, src_idx
+
+    def forward(self, features, inst_query, bboxes, pose_pooler, part_query, **kwargs):
         # roi_feature only using p2.
         features = [features[0]]
-        proposal_boxes = list()
-        for b in range(N):
-            proposal_boxes.append(Boxes(bboxes[b]))
+        N, nr_boxes = bboxes.shape[:2]
+        all_inst = N * nr_boxes
+        all_inst_query = inst_query
+
+        if self.training:
+            indices = kwargs['indices']
+            proposal_boxes = list()
+            valid_query_ind = []
+            for i, indice in enumerate(indices):
+                pred_ind, target_ind = indice #[(tensor([17, 29]), tensor([0, 1])), (tensor([99]), tensor([0]))] 
+                proposal_boxes.append(Boxes(bboxes[i][pred_ind]))
+                valid_query_ind.append(pred_ind + nr_boxes * i)
+            valid_query_ind = torch.cat(valid_query_ind, dim = 0)
+            inst_query = inst_query.squeeze(0)[valid_query_ind].unsqueeze(0) # 1, num_valid_inst, 256
+            all_inst = inst_query.shape[1]
+            if all_inst == 0:
+                # import pudb;pudb.set_trace()
+                return torch.zeros((all_inst, self.num_joints, 3), device=all_inst_query.device), torch.zeros((all_inst, self.num_joints, 2), device=all_inst_query.device), all_inst_query, part_query
+
+        else:
+            proposal_boxes = list()
+            for b in range(N):
+                proposal_boxes.append(Boxes(bboxes[b]))
+
+
         roi_features = pose_pooler(features, proposal_boxes) 
 
-        pose_roi_features = roi_features.view(N * nr_boxes, self.d_model, self.roi_size, self.roi_size)
+        pose_roi_features = roi_features.view(all_inst, self.d_model, self.roi_size, self.roi_size)
         pose_roi_features = self.inst_convs(pose_roi_features)
         
          
         if not self.light:
-            inst_roi_features = pose_roi_features.clone().view(N * nr_boxes, self.d_model, -1).permute(2, 0, 1)
-            inst_query = inst_query.reshape(1, N * nr_boxes, self.d_model)
+            inst_roi_features = pose_roi_features.clone().view(all_inst, self.d_model, -1).permute(2, 0, 1)
+            inst_query = inst_query.reshape(1, all_inst, self.d_model)
             inst_feat = self.pose_decoder_inst_interact(inst_query, inst_roi_features)
             inst_query1 = inst_query + self.inst_dropout(inst_feat)
             inst_query1 = self.inst_norm(inst_query1)
@@ -624,8 +662,8 @@ class Pose_decoder(nn.Module):
         out_coord = collections.OrderedDict()
         out_sigma = collections.OrderedDict()
         for j, head in enumerate(list(self.parts.keys())):
-            out_coord[head]= self.fc_coord[j](part_query[j]).squeeze(0).view(N*nr_boxes, -1)
-            out_sigma[head]= self.fc_sigma[j](part_query[j]).squeeze(0).view(N*nr_boxes, -1)
+            out_coord[head]= self.fc_coord[j](part_query[j]).squeeze(0).view(all_inst, -1)
+            out_sigma[head]= self.fc_sigma[j](part_query[j]).squeeze(0).view(all_inst, -1)
 
         out_coord = self.post_process(out_coord)
         out_sigma = self.post_process(out_sigma)
@@ -638,16 +676,17 @@ class Pose_decoder(nn.Module):
         # out_coord = torch.cat(out_coord, dim=1)
         # out_sigma = torch.cat(out_sigma, dim=1)
 
-
+        
         # (B, N, 2)
-        pred_kps = out_coord.reshape(N*nr_boxes, self.num_joints, 2)
-        sigma = out_sigma.reshape(N*nr_boxes, self.num_joints, -1).sigmoid()
+        pred_kps = out_coord.reshape(all_inst, self.num_joints, 2)
+        sigma = out_sigma.reshape(all_inst, self.num_joints, -1).sigmoid()
         scores = 1 - sigma
 
         scores = torch.mean(scores, dim=2, keepdim=True)
         pred_pose = torch.cat([pred_kps, scores], dim = 2)
-       
-        return pred_pose.view(N, nr_boxes, self.num_joints, 3), sigma.view(N, nr_boxes, self.num_joints, 2), inst_query, part_query
+        if self.training:
+            all_inst_query[0, valid_query_ind] = inst_query[0]
+        return pred_pose.view(all_inst, self.num_joints, 3), sigma.view(all_inst, self.num_joints, 2), all_inst_query, part_query
 
 
 
