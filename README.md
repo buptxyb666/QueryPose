@@ -30,7 +30,7 @@ Backbone | keypoint AP | keypoint AP \* | Times(ms) | download
 
 
 #### Notes
-- We are restructuring our code for accelerating training and inference (reducing the GPU memory significantly as well). Working in Progress 👷‍♂️👷‍♂️👷‍♂️!!! The more effecient implementation will coming soon.
+<!-- - We are restructuring our code for accelerating training and inference (reducing the GPU memory significantly as well). Working in Progress 👷‍♂️👷‍♂️👷‍♂️!!! The more effecient implementation will coming soon. -->
 - The time is calculated on Tesla A100, Other GPU cards are not fully tested.
 - For QueryPose, we leverage the heatmap-pretrain model for HRNet-series backbone instead of using online auxiliary heatmap learning in other regression-based methods. We observe that the online auxiliary heatmap learning is useless for our method.
 <!-- The current version can reproduce the results reported in paper.  -->
