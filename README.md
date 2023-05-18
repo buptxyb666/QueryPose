@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 👏👏👏👏👏👏👏👏👏👏👏 QueryPose is a sparse end-to-end multi-person pose regression framework:
-![](readme/framework.jpg)
+![](readme/framework.jpeg)
 > [**QueryPose: Sparse Multi-Person Pose Regression via Spatial-Aware Part-Level Query**](https://openreview.net/forum?id=tbId-oAOZo),            
 > Yabo Xiao, Kai Su, Xiaojuan Wang, Dongdong Yu, Lei Jin, Mingshu He, Zehuan Yuan;        
 > *Published on NeurIPS 2022*   
@@ -14,13 +14,13 @@
 
 - **Generalizability:** QueryPose is able to achieve the competitive performance on diverise scenes.
 
-- **Fast convergence:** Achieving 60+ AP with only several training epochs.
+- **Fast convergence:** Achieving 60+ AP with only several training epochs (about 6 epochs). We will release the 1x model with competitive performance.
 
 
 ## Models
 The pretrain model of HRNet-series can be downloaded from [HRNet-pretrain](https://drive.google.com/drive/u/0/folders/17DVq-pwqx40ELmbBjYEYVQc1UC9ofgsq). The swin-series can be downloaded from [Swin Transformer](https://github.com/microsoft/Swin-Transformer)
 
-The results on MS COCO mini-val with 100 queries; We provide the light version models (without dynamic head in keypoint decoder)
+The results on MS COCO mini-val with 100 queries; We provide the light version models (without dynamic MLP in keypoint decoder), whose results are slightly lower than the model with dynamic MLP in keypoint decoder. One can reproduce the paper results when set LIGHT_VERSION to False.
 Backbone | keypoint AP | keypoint AP \* | Times(ms) | download
 --- |:---:|:---:|:---:|:---:
 [HRNet32_100pro_3x](projects/querypose/configs/querypose.hrnet32.100pro.3x.yaml) | 69.8 | 72.3  | 97 | [model](https://drive.google.com/file/d/1NWdntVoKFz7KjcDjTGwmAHyEEcS2PWC5/view?usp=share_link) 
